@@ -110,3 +110,131 @@ def login():
             'user_id': user.id
         }), 200
         else return jsonify({'error': 'User or password incorrect'})
+
+@app.route ('/api/products', methods=['POST'])
+@login_required
+def addproduct():
+    data = request.get_json()
+    if not all (key in data for key in ['name', 'description', 'price', 'image_url']):
+        return jsonify({'error': 'Faltam dados obrigatórios do produto'}), 400
+
+    new_product = Product(
+        name= data['name'],
+        description = data['description'],
+        price = data['price'],
+        image_url = data['image_url'],
+        user_id=current_user.id
+    )
+
+        db.session.add(new_product)
+        db.session.commit()
+
+    return jsonify({
+        'message':'Product added successfuly!',
+        'id': new_product.id
+    }),201
+
+@app.route ('api/products/<int:product_id>', methods=['PUT'])
+@login_required
+
+def update_product(product_id):
+     product = Product.query.get_or_404(prodct_id)
+
+     if product.user_id != current_user.id:
+        return jsonify({'error': 'You do not have permition to edit this product'})
+
+    data = request.get_json
+
+    product.name = data.get('name', product.name),
+    product.description = data.get('description', product.description),
+    product.price = data.get('price', product.price),
+    product.image_url = data.get('image_url', product.image_url)
+
+    db.session.commit()
+
+    return jsonify({
+        'message':'Product updated!'
+    }), 200
+
+@app.route ('/api/products/<int:product_id>',methods=['DELETE'])
+@login_required
+def delete_product(product_id):
+    product = Product.query.get_or_404(product_id)
+         if product.user_id != current_user.id:
+            return jsonify({'error': 'You do not have permition to edit this product'})
+
+    db.session.delete(product)
+    db.session.commit()
+
+    return jsonify ({
+        'message': 'Product deleted seccessfuly'
+    }), 200
+
+@app.route ('/api/orders', methods=['POST']) 
+@login_required
+
+def new_order():
+    items_data = request.get_json()
+    if not items_data:
+        return jsonify({'error': 'Nenhum item foi fornecido'}), 400
+
+    new_order = Order(user_id=current_user.id, total_price=0.0)
+
+    db.session.add(new_order)
+    db.session.commit()
+
+    total_price = 0
+
+    for item_data in items_data:
+        product_id = item_data.get('product_id')
+        quantity = item_data.get('quantity')
+
+        product = Product.query.get_or_404(product_id)
+
+        order_item = OrderItem(
+            order_id = new_order.id,
+            product_id= product.id,
+            quantity = quantity, 
+            price = product.price
+        )
+            db.session.add(order_item)
+            total_price  += product.price * quantity
+
+        new_order.total_price=total_price
+        db.session.commit()
+
+        return jsonify({
+            'message':'Ordered successfuly'
+            'order_id': new_order.id
+        }), 201    
+        
+@app.route ('/api/user/<int:user_id>/orders', methods=['GET'])
+@login_required
+def get_user_orders(user_id)
+    if current_user.id != user_id:
+        return jsonify({'error': 'Você não tem permissão para ver estes pedidos'})
+
+     user_orders = Order.query.filter_by(user_id=user_id).order_by(Order.date_created.desc()).all()  
+
+    orders_list = []
+    
+    for order in user_orders:
+        order_items_list = []
+        
+        for item in order.items:
+            order_items_list.append({
+                'product_id': item.product_id,
+                'quantity': item.quantity,
+                'price': item.price_at_purchase
+            })
+            
+        orders_list.append({
+            'order_id': order.id,
+            'date_created': order.date_created,
+            'total_price': order.total_price,
+            'items': order_items_list
+        })
+    
+    return jsonify(orders_list)   
+        
+

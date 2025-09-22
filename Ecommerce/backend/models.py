@@ -1,4 +1,5 @@
 from . import db
+from sqlalchemy.sql import func
 
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
@@ -28,7 +29,16 @@ class Order(db.model):
     user_id= db.Column(db.Integer, db.ForeignKey('user.id',ondelete="CASCADE",nullable=False))
     date_created = db.Column(db.DateTime(timezone=True), default=func.now())
     status= db.Column(db.Text)
+    total_price = db.Column(db.Float)
+    itens = db.relationship('OrderItem', backref ='order', passive_deletes=True)
 
+class OrderItems(db.model):
+    id = db.Column(db.Integer, primary_key = True)
+    order_id = db.Column(db.Integer,db.ForeignKey('order.id', ondelete='CASCADE', nullable=False))
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id',ondelete='CASCADE', nullable=False))
+    quantity = db.Column(db.Integer, nullable=False) 
+    price = db.Column(db.Float, nullable=False)
+    
 
 class Comment(db.model):
     id = db.Column(db.Integer, primary_key=True)
