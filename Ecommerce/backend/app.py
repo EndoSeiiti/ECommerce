@@ -5,13 +5,18 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager, UserMixin, login_user, login_required, current_user
 
 
+
 app = Flask(__name__)
 CORS(app)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///blog.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ecommerce.db'
 db = SQLAlchemy(app)
+from models import User
 
 with app.app_context():
     db.create_all()
+
+login_manager = LoginManager()
+login_manager.init_app(app)
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -19,7 +24,7 @@ def load_user(user_id):
 
 
 @app.route('/api/products', methods=['GET'])
-    def get_products():
+def get_products():
         products = Product.query.all()
         products_list = []
         for product in products:
@@ -50,7 +55,7 @@ def get_product(product_id):
 
 
 @app.route('/api/user/<int:user_id>',methods=['GET'])
-    def get_userdata(user_id):
+def get_userdata(user_id):
         user = User.query.get_or_404(user_id)
         user_products=[]
         for product in products:
@@ -77,24 +82,31 @@ def register_user():
     username = data.get('username')
     password = data.get('password')
 
-    if not email or not usename or not password:
+    if not email or not username or not password:
         return jsonify({'error':'Please fill all fields'}),400
+
+    existing_user = User.query.filter_by(username=username).first()
+    existing_email = User.query.filter_by(email=email).first()
+    
+    if existing_user or existing_email:
+        return jsonify({'error': 'This user or email already exists'}), 409
     
     try: 
         hashed_password = generate_password_hash(password)
         new_user = User(
-            email = email
-            username=username
+            email = email,
+            username=username,
             password= hashed_password
             
         )
         db.session.add(new_user)
-        da.session.commit()
+        db.session.commit()
         
         return jsonify({'message': "User successfully registered "}),201
 
     except Exception as e:
-        return jsonify({'error':'This user or email already exists'}), 409
+        print(f"Erro inesperado durante o registro: {e}")
+        return jsonify({'error': 'An unexpected error occurred'}), 500
 
 @app.route ('/api/login',methods=['POST'])
 def login():
@@ -106,10 +118,11 @@ def login():
     if user and check_password_hash(user.password, password):
         login_user (user)
         return jsonify({
-            'message': Login successfull!,
+            'message': 'Login successfull!',
             'user_id': user.id
         }), 200
-        else return jsonify({'error': 'User or password incorrect'})
+    else:
+             return jsonify({'error': 'User or password incorrect'})
 
 @app.route ('/api/products', methods=['POST'])
 @login_required
@@ -126,24 +139,24 @@ def addproduct():
         user_id=current_user.id
     )
 
-        db.session.add(new_product)
-        db.session.commit()
+    db.session.add(new_product)
+    db.session.commit()
 
     return jsonify({
         'message':'Product added successfuly!',
         'id': new_product.id
     }),201
 
-@app.route ('api/products/<int:product_id>', methods=['PUT'])
+@app.route ('/api/products/<int:product_id>', methods=['PUT'])
 @login_required
 
 def update_product(product_id):
-     product = Product.query.get_or_404(prodct_id)
+    product = Product.query.get_or_404(product_id)
 
-     if product.user_id != current_user.id:
+    if product.user_id != current_user.id:
         return jsonify({'error': 'You do not have permition to edit this product'})
 
-    data = request.get_json
+    data = request.get_json()
 
     product.name = data.get('name', product.name),
     product.description = data.get('description', product.description),
@@ -160,8 +173,8 @@ def update_product(product_id):
 @login_required
 def delete_product(product_id):
     product = Product.query.get_or_404(product_id)
-         if product.user_id != current_user.id:
-            return jsonify({'error': 'You do not have permition to edit this product'})
+    if product.user_id != current_user.id:
+        return jsonify({'error': 'You do not have permition to edit this product'})
 
     db.session.delete(product)
     db.session.commit()
@@ -197,24 +210,24 @@ def new_order():
             quantity = quantity, 
             price = product.price
         )
-            db.session.add(order_item)
-            total_price  += product.price * quantity
+        db.session.add(order_item)
+        total_price  += product.price * quantity
 
         new_order.total_price=total_price
         db.session.commit()
 
         return jsonify({
-            'message':'Ordered successfuly'
+            'message':'Ordered successfuly',
             'order_id': new_order.id
         }), 201    
         
 @app.route ('/api/user/<int:user_id>/orders', methods=['GET'])
 @login_required
-def get_user_orders(user_id)
+def get_user_orders(user_id):
     if current_user.id != user_id:
         return jsonify({'error': 'Você não tem permissão para ver estes pedidos'})
 
-     user_orders = Order.query.filter_by(user_id=user_id).order_by(Order.date_created.desc()).all()  
+    user_orders = Order.query.filter_by(user_id=user_id).order_by(Order.date_created.desc()).all()  
 
     orders_list = []
     
