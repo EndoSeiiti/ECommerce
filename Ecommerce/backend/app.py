@@ -7,8 +7,11 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, cur
 
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/api/*": {"origins": "http://localhost:5173", "supports_credentials": True}})
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ecommerce.db'
+app.config['SECRET_KEY'] = 'minhachave' 
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax' 
+app.config['SESSION_COOKIE_SECURE'] = False    
 db = SQLAlchemy(app)
 from models import User
 
@@ -25,7 +28,7 @@ def load_user(user_id):
 
 @app.route('/api/products', methods=['GET'])
 def get_products():
-        products = Product.query.all()
+        products = product.query.all()
         products_list = []
         for product in products:
             products_list.apend({
@@ -111,18 +114,18 @@ def register_user():
 @app.route ('/api/login',methods=['POST'])
 def login():
     data=request.get_json()
-    username = data.get('username')
+    email = data.get('email')
     password = data.get('password')
 
-    user = User.query.filter_by(username=username).first()
+    user = User.query.filter_by(email=email).first()
     if user and check_password_hash(user.password, password):
-        login_user (user)
+        login_user (user,  remember=True)
         return jsonify({
             'message': 'Login successfull!',
             'user_id': user.id
         }), 200
     else:
-             return jsonify({'error': 'User or password incorrect'})
+             return jsonify({'error': 'User or password incorrect'}), 401
 
 @app.route ('/api/products', methods=['POST'])
 @login_required
